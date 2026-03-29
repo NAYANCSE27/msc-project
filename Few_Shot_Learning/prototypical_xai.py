@@ -312,9 +312,11 @@ def run_metrics(y_true, y_pred, y_prob):
 # XAI methods
 # ---------------------------------------------------
 class GradCAM:
-    def __init__(self, model, target_layer):
+    def __init__(self, model, target_layer, support_images=None, support_labels=None):
         self.model = model
         self.target_layer = target_layer
+        self.support_images = support_images
+        self.support_labels = support_labels
         self.gradients = None
         self.activations = None
         self.hook_handles = []
@@ -334,11 +336,22 @@ class GradCAM:
         self.model.eval()
         self.model.zero_grad()
 
-        output, _, _ = self.model(input_tensor.unsqueeze(0),
-                                  torch.tensor([target_class], device=input_tensor.device) if target_class is not None else None,
-                                  input_tensor.unsqueeze(0))
+        # input_tensor shape [3, H, W] (single image)
+        if self.support_images is None or self.support_labels is None:
+            raise ValueError("GradCAM requires support_images and support_labels to be provided")
+
+        # Prepare query image
+        query_img = input_tensor.unsqueeze(0)  # [1, 3, H, W]
+
+        # Forward pass through ProtoNet
+        output, _, _ = self.model(self.support_images, self.support_labels, query_img)
         # output shape [1, n_way]
+        
         if target_class is None:
+            target_class = torch.argmax(output, dim=1).item()
+
+        # Ensure target_class is valid
+        if target_class >= output.shape[1]:
             target_class = torch.argmax(output, dim=1).item()
 
         score = output[0, target_class]
@@ -363,12 +376,21 @@ class GradCAM:
             handle.remove()
 
 
-def saliency_map(model, input_tensor, target_class=None):
+def saliency_map(model, input_tensor, support_images=None, support_labels=None, target_class=None):
     model.eval()
     input_tensor = input_tensor.unsqueeze(0).clone().detach().requires_grad_(True)
-    logits, _, _ = model(input_tensor, None, input_tensor)
+    
+    if support_images is None or support_labels is None:
+        raise ValueError("saliency_map requires support_images and support_labels to be provided")
+    
+    logits, _, _ = model(support_images, support_labels, input_tensor)
     if target_class is None:
         target_class = torch.argmax(logits, dim=1).item()
+    
+    # Ensure target_class is valid
+    if target_class >= logits.shape[1]:
+        target_class = torch.argmax(logits, dim=1).item()
+    
     score = logits[0, target_class]
     score.backward()
 
@@ -619,13 +641,20 @@ def explain_sample(model, df_test, top_k=5):
     support_labels_mapped = torch.tensor([label_map[int(l)] for l in support_labels], dtype=torch.long).to(DEVICE)
 
     for idx in range(min(top_k, len(query_idx))):
-        img = query_images[idx]; true_label = query_labels[idx].item()
+        img = query_images[idx]
+        true_label = query_labels[idx].item()
+        
         logits, _, _ = model(support_images, support_labels_mapped, img.unsqueeze(0))
         pred = torch.argmax(logits, dim=1).item()
 
-        cam = GradCAM(model, target_layer=model.embedding_net.encoder[4])  # last conv in encoder
+        # Create GradCAM with support set
+        cam = GradCAM(model, target_layer=model.embedding_net.encoder[4], 
+                      support_images=support_images, support_labels=support_labels_mapped)
         cam_mask = cam.generate(img, target_class=pred)
-        sal_map = saliency_map(model, img, target_class=pred)
+        
+        # Compute saliency map with support set
+        sal_map = saliency_map(model, img, support_images=support_images, 
+                              support_labels=support_labels_mapped, target_class=pred)
 
         save_heatmap(img.cpu(), cam_mask, os.path.join(XAI_DIR, f'gradcam_{idx}_true{true_label}_pred{pred}.png'))
         save_heatmap(img.cpu(), sal_map, os.path.join(XAI_DIR, f'saliency_{idx}_true{true_label}_pred{pred}.png'))
