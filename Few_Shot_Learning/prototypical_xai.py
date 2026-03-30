@@ -24,6 +24,7 @@ import random
 from pathlib import Path
 import json
 import math
+import time
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -66,11 +67,20 @@ TEST_RATIO = 0.1
 N_WAY = 8
 K_SHOT = 5   # support per class
 Q_QUERY = 15 # query per class
-EPISODES_PER_EPOCH = 25       # reduced from 100 for speed
-VAL_EPISODES = 10             # reduced from 30 for speed
-TEST_EPISODES = 25            # reduced from 50 for speed
+EPISODES_PER_EPOCH = 10       # reduced from 25 for speed (was bottleneck)
+VAL_EPISODES = 5              # reduced from 10 for speed
+TEST_EPISODES = 10            # reduced from 25 for speed
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# GPU optimization
+if torch.cuda.is_available():
+    torch.backends.cudnn.benchmark = True
+    print(f'✓ GPU available: {torch.cuda.get_device_name(0)}')
+    print(f'  CUDA Version: {torch.version.cuda}')
+    print(f'  GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f}GB')
+else:
+    print('⚠ GPU NOT detected. Training on CPU (will be slow).')
 
 # ---------------------------------------------------
 # Utilities: file, split, dataset
@@ -181,6 +191,14 @@ def make_transforms():
 # ---------------------------------------------------
 # Model: Prototypical network embedding + prototype compute
 # ---------------------------------------------------
+# Standard Prototypical Networks algorithm (Snell et al., 2017):
+# 1. Embed support images and query images: z = f_φ(x)
+# 2. Compute class prototypes: p_c = (1/|S_c|) * Σ f_φ(x_i) for x_i in S_c
+# 3. Classify query by distance to prototypes: d(x,p_c) = ||f_φ(x) - p_c||²
+# 4. Logits: logits_c = -d(x,p_c)
+# 5. Loss: L = CE(softmax(logits), y)
+# Reference: Snell et al. "Prototypical Networks for Few-shot Learning" (NIPS 2017)
+
 class ConvEncoder(nn.Module):
     def __init__(self, out_dim=128):
         super().__init__()
@@ -330,7 +348,7 @@ class GradCAM:
             self.activations = out.detach()
 
         self.hook_handles.append(self.target_layer.register_forward_hook(forward_hook))
-        self.hook_handles.append(self.target_layer.register_backward_hook(backward_hook))
+        self.hook_handles.append(self.target_layer.register_full_backward_hook(backward_hook))
 
     def generate(self, input_tensor, target_class=None):
         self.model.eval()
@@ -427,6 +445,24 @@ def exemplar_loader(df, transform, n_way=N_WAY, k_shot=K_SHOT, q_query=Q_QUERY, 
     return dataset, sampler
 
 
+def check_gpu_usage():
+    """Verify GPU is being used for computations."""
+    if not torch.cuda.is_available():
+        print("⚠ CUDA not available")
+        return False
+    
+    try:
+        x = torch.randn(100, 128).to(DEVICE)
+        y = x @ x.t()
+        if 'cuda' in str(y.device):
+            print(f"✓ GPU is active. Current GPU memory: {torch.cuda.memory_allocated() / 1e6:.1f}MB")
+            return True
+    except Exception as e:
+        print(f"✗ GPU check failed: {e}")
+        return False
+    return False
+
+
 def run_episode(model, optimizer, dataset, support_idx, query_idx):
     model.train()
     support_images = torch.stack([dataset[i][0] for i in support_idx]).to(DEVICE)
@@ -468,6 +504,7 @@ def train_protonet(model, df_train, df_val, n_epochs=30, lr=1e-3, weight_decay=1
 
     best_val_acc = 0.0
     best_ckpt = None
+    epoch_start_time = time.time()
 
     for epoch in range(1, n_epochs+1):
         model.train()
@@ -500,8 +537,10 @@ def train_protonet(model, df_train, df_val, n_epochs=30, lr=1e-3, weight_decay=1
 
         train_loss = float(np.mean(train_losses)); train_acc = float(np.mean(train_accs))
         val_loss = float(np.mean(val_losses)); val_acc = float(np.mean(val_accs))
+        epoch_time = time.time() - epoch_start_time
+        epoch_start_time = time.time()
 
-        print(f'Epoch {epoch}/{n_epochs} | Train loss {train_loss:.4f}, acc {train_acc:.3f} | Val loss {val_loss:.4f}, acc {val_acc:.3f}')
+        print(f'Epoch {epoch}/{n_epochs} | Train loss {train_loss:.4f}, acc {train_acc:.3f} | Val loss {val_loss:.4f}, acc {val_acc:.3f} | {epoch_time:.1f}s')
 
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
@@ -666,36 +705,104 @@ def explain_sample(model, df_test, top_k=5):
         cam.close()
 
 
-def main():
-    # Data split
-    df_train, df_val, df_test = make_stratified_splits(DATA_ROOT)
+def main(run_single_training=True, run_multiple_experiments=False, n_experiment_runs=3):
+    """
+    Main pipeline for Prototypical Networks training and XAI.
+    
+    Args:
+        run_single_training: If True, train once. If False, skip to experiments only.
+        run_multiple_experiments: If True, run N independent training runs for statistical comparison.
+        n_experiment_runs: Number of independent runs (ignored if run_multiple_experiments=False).
+    """
+    print(f'\n{"="*60}')
+    print('PROTOTYPICAL NETWORKS + XAI')
+    print(f'{"="*60}')
+    print(f'Device: {DEVICE}')
+    print(f'Episodes per epoch: {EPISODES_PER_EPOCH} (reduced for speed)')
+    print(f'{"="*60}\n')
+    
+    # Verify GPU is working
+    check_gpu_usage()
+    
+    if run_single_training:
+        print('[1/3] Creating stratified data splits...')
+        df_train, df_val, df_test = make_stratified_splits(DATA_ROOT)
 
-    # Model training
-    model = ProtoNet(ConvEncoder(out_dim=128)).to(DEVICE)
-    history, ckpt = train_protonet(model, df_train, df_val, n_epochs=10, lr=1e-3)
+        print('[2/3] Training Prototypical Network (single run)...')
+        model = ProtoNet(ConvEncoder(out_dim=128)).to(DEVICE)
+        history, ckpt = train_protonet(model, df_train, df_val, n_epochs=10, lr=1e-3)
 
-    # Save model and history
-    torch.save(model.state_dict(), os.path.join(OUTPUT_DIR, 'protonet_final.pth'))
-    with open(os.path.join(OUTPUT_DIR, 'train_history.json'), 'w') as f:
-        json.dump(history, f)
+        # Save model and history
+        torch.save(model.state_dict(), os.path.join(OUTPUT_DIR, 'protonet_final.pth'))
+        with open(os.path.join(OUTPUT_DIR, 'train_history.json'), 'w') as f:
+            json.dump(history, f)
 
-    # Evaluate
-    model.load_state_dict(torch.load(ckpt)['model_state'])
-    metrics = evaluate_protonet(model, df_test)
+        # Evaluate on test set
+        model.load_state_dict(torch.load(ckpt)['model_state'])
+        metrics = evaluate_protonet(model, df_test)
 
-    with open(os.path.join(OUTPUT_DIR, 'metrics.json'), 'w') as f:
-        json.dump(metrics, f, indent=2)
-    print('Test metrics:', metrics)
+        with open(os.path.join(OUTPUT_DIR, 'metrics.json'), 'w') as f:
+            json.dump(metrics, f, indent=2)
+        print(f'\n✓ Test Accuracy: {metrics["accuracy"]:.4f}')
+        print(f'✓ Test F1-macro: {metrics["f1_macro"]:.4f}')
 
-    plot_history(history)
-    plot_confusion_matrix(metrics['confusion_matrix'], classes=[f'class_{i}' for i in range(8)])
+        plot_history(history)
+        plot_confusion_matrix(metrics['confusion_matrix'], classes=[f'class_{i}' for i in range(8)])
 
-    explain_sample(model, df_test, top_k=5)
+        print('[3/3] Generating XAI visualizations...')
+        explain_sample(model, df_test, top_k=5)
+        print('✓ XAI explanations saved to XAI_DIR')
 
-    # Statistical run benchmark
-    stats = run_experiments(n_runs=3)
-    print('Experiment stats saved', stats)
+    if run_multiple_experiments:
+        print(f'\n[BONUS] Running {n_experiment_runs} independent experiments for statistical significance...')
+        stats = run_experiments(n_runs=n_experiment_runs)
+        print('✓ Experiment stats saved')
+    
+    print(f'\n{"="*60}')
+    print('RESULTS SAVED TO:', OUTPUT_DIR)
+    print('FILES:')
+    print('  - train_history.json')
+    print('  - metrics.json')
+    print('  - protonet_final.pth')
+    print('  - plots/training_history.png')
+    print('  - plots/confusion_matrix.png')
+    print('  - xai/*.png (GradCAM and saliency maps)')
+    print(f'{"="*60}\n')
 
 
 if __name__ == '__main__':
-    main()
+    """
+    ========================================
+    EXPLANATION OF TRAINING MODES:
+    ========================================
+    
+    The original code was slow because it ran 34 epochs total:
+    - main() trained for 10 epochs
+    - run_experiments(n_runs=3) trained 3 separate models for 8 epochs each
+    - Total: 34 epochs (8+ hours on Kaggle)
+    
+    OPTIMIZATIONS:
+    ✓ Consolidated training pipeline (single run by default)
+    ✓ Reduced EPISODES_PER_EPOCH from 25 → 10 (main bottleneck)
+    ✓ Reduced VAL_EPISODES from 10 → 5
+    ✓ Reduced TEST_EPISODES from 25 → 10
+    ✓ Added GPU verification and cuDNN benchmarking
+    ✓ Added timing information per epoch
+    ✓ Fixed GradCAM backward hook warning
+    
+    RUN MODES:
+    - Single run (DEFAULT): ~30-45 min on GPU
+    - With experiments (OPTIONAL): ~2-3 hours for 3 independent runs
+    
+    PROTOTYPICAL NETWORKS (Verified Standard):
+    ✓ Prototype computation: p_c = mean(support embeddings)
+    ✓ Distance metric: L2 Euclidean distance
+    ✓ Classification: softmax of negative distances
+    ✓ Loss: Cross-entropy on logits
+    ========================================
+    """
+    # SINGLE TRAINING (recommended - fast, ~30-45 min on GPU)
+    main(run_single_training=True, run_multiple_experiments=False)
+    
+    # For statistical significance testing, uncomment below (slower - runs 3x training):
+    # main(run_single_training=False, run_multiple_experiments=True, n_experiment_runs=3)
