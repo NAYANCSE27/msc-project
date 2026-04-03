@@ -126,7 +126,8 @@ class Config:
     # Few-shot settings
     n_way: int = 8       # Number of classes per episode
     k_shot: int = 5      # Support samples per class
-    q_query: int = 15    # Query samples per class
+    q_query: int = 15    # Query samples per class (training)
+    q_query_eval: int = 5  # Query samples per class (val/test) - smaller due to limited samples
 
     # Training
     n_epochs: int = 30
@@ -799,7 +800,7 @@ def evaluate_model(model: nn.Module, df: pd.DataFrame,
     dataset = FewShotDataset(df, transform=eval_transform)
     sampler = EpisodicSampler(
         df['label'].values,
-        config.n_way, config.k_shot, config.q_query,
+        config.n_way, config.k_shot, config.q_query_eval,
         config.test_episodes, seed=config.seed
     )
 
@@ -1101,7 +1102,7 @@ def generate_xai_visualizations(model: nn.Module, df: pd.DataFrame,
     # Get one episode
     sampler = EpisodicSampler(
         df['label'].values,
-        config.n_way, config.k_shot, config.q_query,
+        config.n_way, config.k_shot, config.q_query_eval,
         episodes=1, seed=config.seed
     )
 
@@ -1418,7 +1419,7 @@ def train_model(model: nn.Module, df_train: pd.DataFrame, df_val: pd.DataFrame,
     )
     val_sampler = EpisodicSampler(
         df_val['label'].values,
-        config.n_way, config.k_shot, config.q_query,
+        config.n_way, config.k_shot, config.q_query_eval,
         config.val_episodes, seed=config.seed
     )
 
