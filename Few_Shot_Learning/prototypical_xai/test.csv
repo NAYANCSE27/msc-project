@@ -1,0 +1,130 @@
+image,label,class
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (99).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (113).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (102).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (150).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (147).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (135).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (121).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (40).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (15).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (136).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (141).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (9).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (70).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (84).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (138).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (73).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (98).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (87).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (24).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (84).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (124).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (85).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (153).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (30).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (61).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (72).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (40).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (81).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (93).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (8).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (35).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (48).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (66).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (15).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (79).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (16).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (104).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (74).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (145).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (107).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (156).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (31).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (27).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (131).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (34).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (133).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (88).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (41).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (6).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (131).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (136).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (133).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (12).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (4).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (118).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (31).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (89).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (86).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (32).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (47).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (24).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (117).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (146).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (160).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (111).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (152).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (79).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (55).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (12).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (75).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (40).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (120).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (157).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (96).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (91).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (80).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (64).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (107).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (22).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (28).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (143).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (157).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (143).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (62).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (94).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (86).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (102).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (119).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (93).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (110).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (18).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (136).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (3).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (14).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (34).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (67).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (61).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (87).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (138).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (44).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (140).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (100).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (74).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (129).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (87).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (98).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (49).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (14).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (65).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (6).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (35).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (43).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Fresh Cucumber/Fresh Cucumber (18).jpg,4,Fresh Cucumber
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (13).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (105).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (99).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (55).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (125).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (17).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Anthracnose/Anthracnose (1).jpg,0,Anthracnose
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (22).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (122).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Downy Mildew/Downy Mildew (160).jpg,3,Downy Mildew
+/kaggle/input/cucumber-dataset/Original Image/Gummy Stem Blight/Gummy Stem Blight (24).jpg,6,Gummy Stem Blight
+/kaggle/input/cucumber-dataset/Original Image/Bacterial Wilt/Bacterial Wilt (9).jpg,1,Bacterial Wilt
+/kaggle/input/cucumber-dataset/Original Image/Pythium Fruit Rot/Pythium Fruit Rot  (74).jpg,7,Pythium Fruit Rot
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (19).jpg,2,Belly Rot
+/kaggle/input/cucumber-dataset/Original Image/Fresh Leaf/Fresh Leaf (146).jpg,5,Fresh Leaf
+/kaggle/input/cucumber-dataset/Original Image/Belly Rot/Belly Rot (125).jpg,2,Belly Rot
