@@ -150,6 +150,9 @@ class Config:
     xai_samples: int = 10
     gradcam_layer: str = 'encoder.6'  # Target layer for Grad-CAM
 
+    # Performance
+    use_amp: bool = True  # Automatic Mixed Precision for faster training
+
     def __post_init__(self):
         """Create output directories."""
         self.split_dir = os.path.join(self.output_dir, 'splits')
@@ -174,13 +177,54 @@ def setup_gpu():
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = False
+        torch.cuda.empty_cache()  # Clear cache before start
         print(f"✓ GPU: {torch.cuda.get_device_name(0)}")
         print(f"✓ CUDA: {torch.version.cuda}")
         print(f"✓ Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+        print(f"✓ Initial GPU Memory: {torch.cuda.memory_allocated() / 1e6:.1f} MB allocated")
         return True
     else:
-        print("⚠ Warning: GPU not available. Using CPU (slow).")
+        print("⚠ Warning: GPU not available. Using CPU (will be very slow).")
         return False
+
+def count_parameters(model: nn.Module) -> Tuple[int, int]:
+    """Count trainable and total parameters."""
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    return trainable, total
+
+def get_model_size_mb(model: nn.Module) -> float:
+    """Get model size in MB."""
+    param_size = sum(p.numel() * p.element_size() for p in model.parameters())
+    buffer_size = sum(b.numel() * b.element_size() for b in model.buffers())
+    return (param_size + buffer_size) / 1024**2
+
+def print_model_details(model: nn.Module, config: Config = CFG):
+    """Print detailed model information."""
+    print("\n" + "="*60)
+    print("MODEL ARCHITECTURE")
+    print("="*60)
+    print(f"\nDevice: {DEVICE}")
+    print(f"Mixed Precision: {config.use_amp}")
+    print(f"\n{'='*60}")
+    print("ENCODER ARCHITECTURE")
+    print("="*60)
+    print(model.encoder)
+    print(f"\n{'='*60}")
+    print("MODEL STATISTICS")
+    print("="*60)
+    trainable_params, total_params = count_parameters(model)
+    model_size = get_model_size_mb(model)
+    print(f"Trainable parameters: {trainable_params:,}")
+    print(f"Total parameters:     {total_params:,}")
+    print(f"Model size:           {model_size:.2f} MB")
+    print(f"\n{'='*60}")
+
+    # Verify model is on GPU
+    if DEVICE.type == 'cuda':
+        print(f"Model device: {next(model.parameters()).device}")
+        print(f"GPU Memory after model load: {torch.cuda.memory_allocated() / 1e6:.1f} MB")
+        print("="*60)
 
 # ================================================================================
 # REPRODUCIBILITY
@@ -640,7 +684,7 @@ class AverageMeter:
 
 def run_episode(model: nn.Module, optimizer: torch.optim.Optimizer,
                 dataset: Dataset, support_idx: List[int], query_idx: List[int],
-                training: bool = True) -> Tuple[float, float, np.ndarray, np.ndarray, np.ndarray]:
+                training: bool = True, scaler: Optional[torch.cuda.amp.GradScaler] = None) -> Tuple[float, float, np.ndarray, np.ndarray, np.ndarray]:
     """
     Run a single training or evaluation episode.
 
@@ -682,16 +726,27 @@ def run_episode(model: nn.Module, optimizer: torch.optim.Optimizer,
         dtype=torch.long, device=DEVICE
     )
 
-    # Forward pass
+    # Forward pass with optional AMP
     if training:
         optimizer.zero_grad()
 
-    logits, _, _ = model(support_images, support_labels_mapped, query_images)
-    loss = prototypical_loss(logits, query_labels_mapped)
-
-    if training:
-        loss.backward()
-        optimizer.step()
+        if scaler is not None:
+            # Automatic Mixed Precision training
+            with torch.cuda.amp.autocast():
+                logits, _, _ = model(support_images, support_labels_mapped, query_images)
+                loss = prototypical_loss(logits, query_labels_mapped)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            logits, _, _ = model(support_images, support_labels_mapped, query_images)
+            loss = prototypical_loss(logits, query_labels_mapped)
+            loss.backward()
+            optimizer.step()
+    else:
+        with torch.no_grad():
+            logits, _, _ = model(support_images, support_labels_mapped, query_images)
+            loss = prototypical_loss(logits, query_labels_mapped)
 
     # Compute predictions
     probs = F.softmax(logits, dim=1)
@@ -1103,7 +1158,7 @@ def generate_xai_visualizations(model: nn.Module, df: pd.DataFrame,
     sampler = EpisodicSampler(
         df['label'].values,
         config.n_way, config.k_shot, config.q_query_eval,
-        episodes=1, seed=config.seed
+        n_episodes=1, seed=config.seed
     )
 
     support_idx, query_idx = next(iter(sampler))
@@ -1453,7 +1508,13 @@ def train_model(model: nn.Module, df_train: pd.DataFrame, df_val: pd.DataFrame,
     print(f"  Learning rate: {config.lr}")
     print(f"  Weight decay: {config.weight_decay}")
     print(f"  Device: {DEVICE}")
+    print(f"  Mixed Precision: {config.use_amp}")
+    if torch.cuda.is_available():
+        print(f"  Initial GPU Memory: {torch.cuda.memory_allocated() / 1e6:.1f} MB")
     print(f"\n{'='*60}\n")
+
+    # Initialize gradient scaler for mixed precision
+    scaler = torch.cuda.amp.GradScaler() if (config.use_amp and torch.cuda.is_available()) else None
 
     start_time = time.time()
 
@@ -1467,7 +1528,7 @@ def train_model(model: nn.Module, df_train: pd.DataFrame, df_val: pd.DataFrame,
         for support_idx, query_idx in train_sampler:
             loss, acc, _, _, _ = run_episode(
                 model, optimizer, train_dataset,
-                support_idx, query_idx, training=True
+                support_idx, query_idx, training=True, scaler=scaler
             )
             train_loss_meter.update(loss)
             train_acc_meter.update(acc)
@@ -1497,12 +1558,18 @@ def train_model(model: nn.Module, df_train: pd.DataFrame, df_val: pd.DataFrame,
 
         epoch_time = time.time() - epoch_start
 
-        # Print progress
+        # Print progress with GPU memory
+        if torch.cuda.is_available():
+            gpu_mem = torch.cuda.memory_allocated() / 1e6
+            mem_info = f" | GPU: {gpu_mem:.1f} MB"
+        else:
+            mem_info = ""
+
         print(f"Epoch {epoch:3d}/{config.n_epochs} | "
               f"Train Loss: {train_loss_meter.avg:.4f} Acc: {train_acc_meter.avg:.3f} | "
               f"Val Loss: {val_loss_meter.avg:.4f} Acc: {val_acc_meter.avg:.3f} | "
               f"LR: {optimizer.param_groups[0]['lr']:.6f} | "
-              f"Time: {epoch_time:.1f}s")
+              f"Time: {epoch_time:.1f}s{mem_info}")
 
         # Save best model
         if val_acc_meter.avg > best_val_acc:
@@ -1518,8 +1585,11 @@ def train_model(model: nn.Module, df_train: pd.DataFrame, df_val: pd.DataFrame,
 
     total_time = time.time() - start_time
     print(f"\n{'='*60}")
-    print(f"Training complete! Total time: {total_time/60:.1f} minutes")
+    print(f"Training complete!")
+    print(f"Total time: {total_time/60:.1f} minutes ({total_time:.1f} seconds)")
     print(f"Best validation accuracy: {best_val_acc:.4f}")
+    if torch.cuda.is_available():
+        print(f"Final GPU Memory: {torch.cuda.memory_allocated() / 1e6:.1f} MB")
     print(f"{'='*60}\n")
 
     return history, best_ckpt_path
@@ -1642,9 +1712,8 @@ def main(config: Config = CFG, run_experiments: bool = False, n_experiment_runs:
     encoder = ConvEncoder(out_dim=config.embedding_dim, dropout=config.dropout)
     model = PrototypicalNetwork(encoder).to(DEVICE)
 
-    # Print model info
-    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Model parameters: {n_params:,}")
+    # Print detailed model information
+    print_model_details(model, config)
 
     history, best_ckpt = train_model(model, df_train, df_val, config)
 
