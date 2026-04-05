@@ -486,34 +486,34 @@ class ConvEncoder(nn.Module):
             # Block 1: 128×128 → 64×64
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(2),
             nn.Dropout2d(dropout / 2),
 
             # Block 2: 64×64 → 32×32
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(2),
             nn.Dropout2d(dropout / 2),
 
             # Block 3: 32×32 → 16×16
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(2),
             nn.Dropout2d(dropout),
 
             # Block 4: 16×16 → 8×8
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.AdaptiveAvgPool2d((1, 1))  # Global average pooling
         )
 
         self.fc = nn.Sequential(
             nn.Linear(256, 256),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.Dropout(dropout),
             nn.Linear(256, out_dim)
         )
