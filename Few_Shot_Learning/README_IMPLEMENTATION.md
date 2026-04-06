@@ -294,16 +294,18 @@ This provides confidence intervals for reported metrics.
 
 ```
 Input: [B, 3, 128, 128]
-  ↓ Conv2d(3→32, 3×3) + BN + ReLU + MaxPool(2) + Dropout
-  ↓ Conv2d(32→64, 3×3) + BN + ReLU + MaxPool(2) + Dropout
-  ↓ Conv2d(64→128, 3×3) + BN + ReLU + MaxPool(2) + Dropout
-  ↓ Conv2d(128→256, 3×3) + BN + ReLU + AdaptiveAvgPool
+  ↓ Conv2d(3→32, 3×3) + BN + ReLU(inplace=False) + MaxPool(2) + Dropout
+  ↓ Conv2d(32→64, 3×3) + BN + ReLU(inplace=False) + MaxPool(2) + Dropout
+  ↓ Conv2d(64→128, 3×3) + BN + ReLU(inplace=False) + MaxPool(2) + Dropout
+  ↓ Conv2d(128→256, 3×3) + BN + ReLU(inplace=False) + AdaptiveAvgPool
   ↓ Flatten
-  ↓ FC(256→256) + ReLU + Dropout
+  ↓ FC(256→256) + ReLU(inplace=False) + Dropout
   ↓ FC(256→128)
   ↓ L2 Normalization
 Output: [B, 128]
 ```
+
+**Note:** All ReLU layers use `inplace=False` to ensure compatibility with GradCAM backward hooks.
 
 ### PrototypicalNetwork
 
@@ -368,6 +370,22 @@ If using this implementation in your research:
 - Ensure GPU is being used: `torch.cuda.is_available()`
 - Enable cuDNN benchmarking: `torch.backends.cudnn.benchmark = True`
 
+### RuntimeError: BackwardHookFunctionBackward is a view and is being modified inplace
+
+**Cause:** The `inplace=True` setting in ReLU layers conflicts with PyTorch backward hooks used in GradCAM.
+
+**Fix:** All ReLU layers in `ConvEncoder` must use `inplace=False`:
+
+```python
+# Correct (for GradCAM compatibility)
+nn.ReLU(inplace=False)
+
+# Incorrect (causes error with backward hooks)
+nn.ReLU(inplace=True)
+```
+
+This fix has been applied to all model implementations in this repository. If you modify the encoder architecture, ensure all ReLU layers use `inplace=False` to maintain GradCAM compatibility.
+
 ---
 
 ## License
@@ -380,4 +398,4 @@ This implementation is provided for research purposes. Please cite the original 
 
 For questions or issues, please open an issue in the repository.
 
-**Last Updated:** 2026-04-04
+**Last Updated:** 2026-04-06 (Fixed inplace ReLU compatibility with GradCAM)
