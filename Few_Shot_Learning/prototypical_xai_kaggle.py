@@ -49,17 +49,19 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg')
+# Use 'Agg' only if not in interactive environment
+if 'DISPLAY' not in os.environ and 'KAGGLE_KERNEL_RUN_TYPE' not in os.environ:
+    matplotlib.use('Agg')
 
 warnings.filterwarnings('ignore')
 
 # ================================================================================
-# CONFIGURATION
+# CONFIGURATION - OPTIMIZED FOR GPU UTILIZATION AND ACCURACY
 # ================================================================================
 
 @dataclass
 class Config:
-    """Configuration for reproducibility."""
+    """Configuration for reproducibility - OPTIMIZED for Kaggle GPU."""
     data_root: str = '/kaggle/input/few-shot-data'
     output_dir: str = '/kaggle/working'
     n_classes: int = 8
@@ -71,16 +73,18 @@ class Config:
     k_shot: int = 5
     q_query: int = 15
     q_query_eval: int = 5
-    n_epochs: int = 30
+    n_epochs: int = 100  # INCREASED from 30 for better convergence
     lr: float = 1e-3
     weight_decay: float = 1e-4
-    embedding_dim: int = 128
-    episodes_per_epoch: int = 20
-    val_episodes: int = 10
-    test_episodes: int = 15
+    embedding_dim: int = 512  # INCREASED from 128
+    episodes_per_epoch: int = 100  # INCREASED from 20 for more training
+    val_episodes: int = 20  # INCREASED from 10
+    test_episodes: int = 50  # INCREASED from 15 for robust evaluation
     seed: int = 42
     xai_samples: int = 10
     use_amp: bool = True
+    label_smoothing: float = 0.1  # ADDED for better generalization
+    early_stopping_patience: int = 20  # ADDED
 
 CFG = Config()
 
@@ -213,15 +217,20 @@ class EpisodicSampler:
             yield support_idx, query_idx
 
 
-# Transforms
+# Transforms - ENHANCED DATA AUGMENTATION FOR BETTER GENERALIZATION
 mean = [0.485, 0.456, 0.406]
 std = [0.229, 0.224, 0.225]
 
 train_transform = transforms.Compose([
     transforms.Resize((CFG.img_size, CFG.img_size)),
     transforms.RandomHorizontalFlip(p=0.5),
-    transforms.RandomRotation(15),
-    transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1, hue=0.05),
+    transforms.RandomVerticalFlip(p=0.3),  # ADDED
+    transforms.RandomRotation(30),  # INCREASED from 15
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),  # ADDED
+    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.1),  # ENHANCED
+    transforms.RandomGrayscale(p=0.1),  # ADDED
+    transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 0.5)),  # ADDED
+    transforms.RandomPerspective(distortion_scale=0.2, p=0.3),  # ADDED
     transforms.Normalize(mean=mean, std=std)
 ])
 
@@ -236,44 +245,59 @@ eval_transform = transforms.Compose([
 
 class ConvEncoder(nn.Module):
     """
-    CNN encoder for embedding images.
+    Deep CNN encoder for embedding images - OPTIMIZED FOR GPU UTILIZATION.
 
     IMPORTANT: Using inplace=False in all ReLU layers to avoid conflicts
-    with backward hooks used in GradCAM. This fixes the error:
-    "RuntimeError: Output 0 of BackwardHookFunctionBackward is a view and
-    is being modified inplace"
+    with backward hooks used in GradCAM.
     """
-    def __init__(self, out_dim=128, dropout=0.3):
+    def __init__(self, out_dim=512, dropout=0.3):  # Default out_dim increased to 512
         super().__init__()
+        # Increased channels for better GPU utilization
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=False),  # Changed from inplace=True for GradCAM compatibility
-            nn.MaxPool2d(2),
-            nn.Dropout2d(dropout/2),
-
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            # Block 1
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(inplace=False),  # Changed from inplace=True
+            nn.ReLU(inplace=False),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(2),
-            nn.Dropout2d(dropout/2),
+            nn.Dropout2d(dropout/3),
 
+            # Block 2
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=False),  # Changed from inplace=True
+            nn.ReLU(inplace=False),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=False),
             nn.MaxPool2d(2),
-            nn.Dropout2d(dropout),
+            nn.Dropout2d(dropout/3),
 
+            # Block 3
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(inplace=False),  # Changed from inplace=True
+            nn.ReLU(inplace=False),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(2),
+            nn.Dropout2d(dropout/2),
+
+            # Block 4
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False),
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=False),
             nn.AdaptiveAvgPool2d((1, 1))
         )
         self.fc = nn.Sequential(
-            nn.Linear(256, 256),
-            nn.ReLU(inplace=False),  # Changed from inplace=True
+            nn.Linear(512, 1024),  # Increased hidden size
+            nn.ReLU(inplace=False),
             nn.Dropout(dropout),
-            nn.Linear(256, out_dim)
+            nn.Linear(1024, out_dim)
         )
 
     def forward(self, x):
@@ -336,7 +360,8 @@ print("="*60)
 # ================================================================================
 
 def prototypical_loss(logits, labels):
-    return F.cross_entropy(logits, labels)
+    """Cross-entropy loss with label smoothing for better generalization."""
+    return F.cross_entropy(logits, labels, label_smoothing=CFG.label_smoothing)
 
 
 class AverageMeter:
@@ -412,9 +437,18 @@ train_sampler = EpisodicSampler(df_train['label'].values, CFG.n_way, CFG.k_shot,
 val_sampler = EpisodicSampler(df_val['label'].values, CFG.n_way, CFG.k_shot,
                                CFG.q_query_eval, CFG.val_episodes, seed=CFG.seed)
 
-# Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+# Optimizer - AdamW with better regularization
+optimizer = torch.optim.AdamW(model.parameters(), lr=CFG.lr, weight_decay=CFG.weight_decay,
+                               betas=(0.9, 0.999), eps=1e-8)
+
+# Cosine annealing with warm restarts for better convergence
+scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+    optimizer, T_0=10, T_mult=2, eta_min=1e-6
+)
+
+# Early stopping setup
+early_stopping_patience = 20
+early_stopping_counter = 0
 
 # Mixed precision
 scaler = torch.cuda.amp.GradScaler() if (CFG.use_amp and torch.cuda.is_available()) else None
@@ -426,8 +460,19 @@ best_val_acc = 0.0
 print(f"\n{'='*60}")
 print("TRAINING START")
 print(f"{'='*60}")
+print(f"Mixed Precision Training: {CFG.use_amp}")
+print(f"Label Smoothing: {CFG.label_smoothing}")
+print(f"Optimizer: AdamW (lr={CFG.lr}, wd={CFG.weight_decay})")
+print(f"Scheduler: CosineAnnealingWarmRestarts")
+print(f"Early Stopping Patience: {early_stopping_patience}")
+print(f"{'='*60}\n")
+
+total_start = time.time()
 
 for epoch in range(1, CFG.n_epochs + 1):
+    epoch_start = time.time()
+
+    # Training
     train_loss = AverageMeter()
     train_acc = AverageMeter()
     for support_idx, query_idx in train_sampler:
@@ -438,6 +483,7 @@ for epoch in range(1, CFG.n_epochs + 1):
 
     scheduler.step()
 
+    # Validation
     val_loss = AverageMeter()
     val_acc = AverageMeter()
     model.eval()
@@ -447,25 +493,49 @@ for epoch in range(1, CFG.n_epochs + 1):
         val_loss.update(loss)
         val_acc.update(acc)
 
+    # Record
     history['train_loss'].append(train_loss.avg)
     history['train_acc'].append(train_acc.avg)
     history['val_loss'].append(val_loss.avg)
     history['val_acc'].append(val_acc.avg)
     history['lr'].append(optimizer.param_groups[0]['lr'])
 
-    print(f"Epoch {epoch:2d}/{CFG.n_epochs} | "
-          f"Train Loss: {train_loss.avg:.4f} Acc: {train_acc.avg:.3f} | "
-          f"Val Loss: {val_loss.avg:.4f} Acc: {val_acc.avg:.3f}")
+    epoch_time = time.time() - epoch_start
 
+    print(f"Epoch {epoch:3d}/{CFG.n_epochs} | "
+          f"Train Loss: {train_loss.avg:.4f} Acc: {train_acc.avg:.3f} | "
+          f"Val Loss: {val_loss.avg:.4f} Acc: {val_acc.avg:.3f} | "
+          f"LR: {optimizer.param_groups[0]['lr']:.6f} | "
+          f"Time: {epoch_time:.1f}s")
+
+    # Save best with early stopping
     if val_acc.avg > best_val_acc:
         best_val_acc = val_acc.avg
+        early_stopping_counter = 0
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'val_acc': best_val_acc
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'val_acc': best_val_acc,
+            'history': history
         }, f"{CFG.output_dir}/checkpoints/best_model.pth")
+        print(f"  -> Saved new best model (val_acc: {best_val_acc:.4f})")
+    else:
+        early_stopping_counter += 1
 
-print(f"\nTraining complete! Best Val Acc: {best_val_acc:.4f}")
+    # Early stopping check
+    if early_stopping_counter >= early_stopping_patience:
+        print(f"\nEarly stopping triggered after {epoch} epochs")
+        break
+
+total_time = time.time() - total_start
+print(f"\n{'='*60}")
+print(f"Training complete!")
+print(f"Total time: {total_time/60:.1f} minutes ({total_time:.1f} seconds)")
+print(f"Best Val Acc: {best_val_acc:.4f}")
+print(f"Epochs trained: {epoch}/{CFG.n_epochs}")
+print(f"{'='*60}")
 
 # ================================================================================
 # EVALUATION
@@ -475,36 +545,53 @@ print(f"\nTraining complete! Best Val Acc: {best_val_acc:.4f}")
 checkpoint = torch.load(f"{CFG.output_dir}/checkpoints/best_model.pth")
 model.load_state_dict(checkpoint['model_state_dict'])
 
-def evaluate_model(model, df, split='test'):
-    test_dataset = FewShotDataset(df, transform=eval_transform)
-    test_sampler = EpisodicSampler(df['label'].values, CFG.n_way, CFG.k_shot,
-                                    CFG.q_query_eval, CFG.test_episodes, seed=CFG.seed)
+def evaluate_model(model, df, split='test', n_runs=3):
+    """Evaluate model with multiple runs for statistical significance."""
+    all_run_metrics = []
 
-    all_preds, all_labels, all_loss = [], [], []
+    for run in range(n_runs):
+        set_seed(CFG.seed + run)
+        test_dataset = FewShotDataset(df, transform=eval_transform)
+        test_sampler = EpisodicSampler(df['label'].values, CFG.n_way, CFG.k_shot,
+                                        CFG.q_query_eval, CFG.test_episodes, seed=CFG.seed + run)
 
-    model.eval()
-    for support_idx, query_idx in tqdm(test_sampler, desc=f"Evaluating {split}"):
-        loss, acc, preds, labels = run_episode(model, None, test_dataset,
+        all_preds, all_labels = [], []
+
+        model.eval()
+        for support_idx, query_idx in tqdm(test_sampler, desc=f"Evaluating {split} run {run+1}/{n_runs}"):
+            _, _, preds, labels = run_episode(model, None, test_dataset,
                                                 support_idx, query_idx, training=False, scaler=None)
-        all_preds.extend(preds)
-        all_labels.extend(labels)
-        all_loss.append(loss)
+            all_preds.extend(preds)
+            all_labels.extend(labels)
 
-    all_preds = np.array(all_preds)
-    all_labels = np.array(all_labels)
+        all_preds = np.array(all_preds)
+        all_labels = np.array(all_labels)
 
+        run_metrics = {
+            'accuracy': accuracy_score(all_labels, all_preds),
+            'f1_macro': f1_score(all_labels, all_preds, average='macro'),
+            'f1_micro': f1_score(all_labels, all_preds, average='micro'),
+            'precision_macro': precision_score(all_labels, all_preds, average='macro'),
+            'recall_macro': recall_score(all_labels, all_preds, average='macro'),
+            'confusion_matrix': confusion_matrix(all_labels, all_preds).tolist(),
+        }
+        all_run_metrics.append(run_metrics)
+
+    # Average metrics across runs
     metrics = {
-        'accuracy': accuracy_score(all_labels, all_preds),
-        'f1_macro': f1_score(all_labels, all_preds, average='macro'),
-        'f1_micro': f1_score(all_labels, all_preds, average='micro'),
-        'precision_macro': precision_score(all_labels, all_preds, average='macro'),
-        'recall_macro': recall_score(all_labels, all_preds, average='macro'),
-        'confusion_matrix': confusion_matrix(all_labels, all_preds).tolist(),
+        'accuracy': np.mean([m['accuracy'] for m in all_run_metrics]),
+        'accuracy_std': np.std([m['accuracy'] for m in all_run_metrics]),
+        'f1_macro': np.mean([m['f1_macro'] for m in all_run_metrics]),
+        'f1_macro_std': np.std([m['f1_macro'] for m in all_run_metrics]),
+        'f1_micro': np.mean([m['f1_micro'] for m in all_run_metrics]),
+        'precision_macro': np.mean([m['precision_macro'] for m in all_run_metrics]),
+        'recall_macro': np.mean([m['recall_macro'] for m in all_run_metrics]),
+        'confusion_matrix': all_run_metrics[-1]['confusion_matrix'],
     }
 
     return metrics
 
-metrics = evaluate_model(model, df_test, 'test')
+metrics = evaluate_model(model, df_test, 'test', n_runs=3)
 
 with open(f"{CFG.output_dir}/test_metrics.json", 'w') as f:
     json.dump(metrics, f, indent=2)
@@ -512,9 +599,11 @@ with open(f"{CFG.output_dir}/test_metrics.json", 'w') as f:
 print(f"\n{'='*60}")
 print("TEST SET RESULTS")
 print(f"{'='*60}")
-print(f"Accuracy: {metrics['accuracy']:.4f}")
-print(f"F1-Score (Macro): {metrics['f1_macro']:.4f}")
-print(f"F1-Score (Micro): {metrics['f1_micro']:.4f}")
+print(f"Accuracy:          {metrics['accuracy']:.4f} (±{metrics['accuracy_std']:.4f})")
+print(f"F1-Score (Macro):  {metrics['f1_macro']:.4f} (±{metrics['f1_macro_std']:.4f})")
+print(f"F1-Score (Micro):  {metrics['f1_micro']:.4f}")
+print(f"Precision (Macro): {metrics['precision_macro']:.4f}")
+print(f"Recall (Macro):    {metrics['recall_macro']:.4f}")
 print(f"{'='*60}")
 
 # ================================================================================
