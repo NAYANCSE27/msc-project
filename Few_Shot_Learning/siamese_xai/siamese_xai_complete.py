@@ -14,8 +14,8 @@ Key Features:
 - Mixed precision training
 - Preloaded dataset in memory
 
-Author: Research Implementation
-Version: 3.0 (8-way 5-shot standard)
+Author: Mehadi Hasan
+Version: 4.0 (Improved generalization with label smoothing and augmentation)
 ================================================================================
 """
 
@@ -118,12 +118,25 @@ class CachedImageDataset(Dataset):
     """
     OPTIMIZED: Preloads ALL images into memory once.
     Uses 128x128 resolution for better image quality.
+    Includes data augmentation for better generalization.
     """
 
-    def __init__(self, df, transform=None, device='cuda'):
+    def __init__(self, df, transform=None, device='cuda', augment=False):
         self.df = df
         self.transform = transform
         self.device = device
+        self.augment = augment
+
+        # Data augmentation transforms for training
+        if augment:
+            self.aug_transform = transforms.Compose([
+                transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomRotation(degrees=15),
+                transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+                transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+            ])
+        else:
+            self.aug_transform = None
 
         print(f"Preloading {len(df)} images into memory (128x128)...")
         self.images = []
@@ -154,7 +167,25 @@ class CachedImageDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        return self.images[idx], self.labels[idx]
+        image = self.images[idx]
+        label = self.labels[idx]
+
+        if self.augment and self.aug_transform is not None:
+            # Apply augmentation (works on PIL images, so we need to convert)
+            # For tensor, apply simple augmentations
+            image = image.clone()
+            if random.random() > 0.5:
+                image = torch.flip(image, dims=[2])
+            if random.random() > 0.5:
+                angle = random.uniform(-15, 15)
+                # Simple rotation approximation
+                image = torch.rot90(image, k=int(angle/90), dims=[1, 2])
+            if random.random() > 0.5:
+                brightness = 1.0 + random.uniform(-0.2, 0.2)
+                image = image * brightness
+                image = torch.clamp(image, -2.5, 2.5)
+
+        return image, label
 
 
 # =============================================================================
@@ -404,15 +435,15 @@ class SiameseEncoder(nn.Module):
         # Adaptive pooling to fixed size
         self.pool = nn.AdaptiveAvgPool2d((4, 4))
 
-        # Projection head with larger hidden dimension
+        # Projection head with reduced dropout for better training capacity
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(512 * 4 * 4, 512),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.4),
+            nn.Dropout(0.25),
             nn.Linear(512, 256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.3),
+            nn.Dropout(0.15),
             nn.Linear(256, out_dim)
         )
 
@@ -471,11 +502,12 @@ class SiameseNetwork(nn.Module):
 
 
 class PairwiseCrossEntropyLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, label_smoothing=0.1):
         super().__init__()
+        self.label_smoothing = label_smoothing
 
     def forward(self, logits, labels):
-        return F.cross_entropy(logits, labels)
+        return F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
 
 
 # =============================================================================
@@ -590,8 +622,8 @@ def train_model(model, df_train, df_val, n_epochs=None, lr=None, verbose=True):
     if lr is None: lr = cfg.LEARNING_RATE
 
     print("\nLoading datasets into memory...")
-    train_dataset = CachedImageDataset(df_train, None, cfg.DEVICE)
-    val_dataset = CachedImageDataset(df_val, None, cfg.DEVICE)
+    train_dataset = CachedImageDataset(df_train, None, cfg.DEVICE, augment=True)
+    val_dataset = CachedImageDataset(df_val, None, cfg.DEVICE, augment=False)
 
     print(f"Train dataset: {len(train_dataset)} images")
     print(f"Val dataset: {len(val_dataset)} images")
@@ -607,7 +639,7 @@ def train_model(model, df_train, df_val, n_epochs=None, lr=None, verbose=True):
         episodes=10
     )
 
-    criterion = PairwiseCrossEntropyLoss()
+    criterion = PairwiseCrossEntropyLoss(label_smoothing=0.1)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=cfg.WEIGHT_DECAY)
 
     total_steps = n_epochs * cfg.EPISODES_PER_EPOCH
@@ -728,7 +760,7 @@ def evaluate_model(model, df_test, episodes=20):
         episodes=episodes
     )
 
-    criterion = PairwiseCrossEntropyLoss()
+    criterion = PairwiseCrossEntropyLoss(label_smoothing=0.1)
     model.eval()
 
     y_true, y_pred, y_prob = [], [], []
@@ -850,15 +882,16 @@ def plot_confusion_matrix(cm, class_names, save_path=None):
     """Plot confusion matrix with proper class alignment."""
     global CLASS_NAMES
 
-    # Handle shape mismatch
+    # Handle shape mismatch - ensure square matrix
     if cm.shape[0] != cm.shape[1]:
-        cm = confusion_matrix(y_true, y_pred)
+        min_dim = min(cm.shape[0], cm.shape[1])
+        cm = cm[:min_dim, :min_dim]
 
     n_classes = cm.shape[0]
 
-    # Use full class names if available, otherwise create generic ones
+    # Use actual class names if available, otherwise create generic ones
     if class_names is None:
-        class_names = [f'Class_{i}' for i in range(n_classes)]
+        class_names = CLASS_NAMES[:n_classes] if CLASS_NAMES else [f'Class_{i}' for i in range(n_classes)]
     elif len(class_names) < n_classes:
         class_names = list(class_names) + [f'Class_{i}' for i in range(len(class_names), n_classes)]
 
@@ -892,9 +925,10 @@ def plot_per_class_metrics(metrics, class_names, save_path=None):
     # Get all unique classes from metrics
     n_classes_metrics = len(metrics.get('f1_per_class', []))
 
-    # Use full class names if available, otherwise create generic ones
+    # Use actual class names if available, otherwise create generic ones
+    global CLASS_NAMES
     if class_names is None:
-        class_names = [f'Class_{i}' for i in range(n_classes_metrics)]
+        class_names = CLASS_NAMES[:n_classes_metrics] if CLASS_NAMES else [f'Class_{i}' for i in range(n_classes_metrics)]
     elif len(class_names) < n_classes_metrics:
         # Extend class names if we have more classes in metrics
         class_names = list(class_names) + [f'Class_{i}' for i in range(len(class_names), n_classes_metrics)]
@@ -1142,8 +1176,11 @@ def main():
 
     print("Generating visualizations...")
 
-    # Use class names matching the metrics
-    metrics_class_names = [f'Class {i}' for i in range(n_classes_in_metrics)]
+    # Use actual class names from CLASS_NAMES
+    if CLASS_NAMES and len(CLASS_NAMES) >= n_classes_in_metrics:
+        metrics_class_names = CLASS_NAMES[:n_classes_in_metrics]
+    else:
+        metrics_class_names = [f'Class {i}' for i in range(n_classes_in_metrics)]
 
     plot_confusion_matrix(
         np.array(test_metrics['confusion_matrix']),
